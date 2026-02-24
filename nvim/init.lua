@@ -147,7 +147,11 @@ setup_colorscheme()
 
 local function setup_lsps()
     vim.lsp.enable('clangd')
+
     vim.lsp.enable('lua_ls')
+
+    vim.lsp.enable('roslyn')
+
     vim.keymap.set('n', '<leader>ca', vim.lsp.buf.code_action, { desc = 'Perform LSP-suggested code action' })
     vim.keymap.set('n', 'grd', vim.lsp.buf.definition)
     vim.diagnostic.config({
@@ -210,23 +214,6 @@ local function open_git_layout()
 
     -- set cwd to that of given file
     vim.cmd("cd " .. file_dir)
-
-    vim.api.nvim_create_autocmd("DiagnosticChanged", {
-        once = true,
-        callback = function()
-            local trouble = require("trouble")
-
-            trouble.open({
-                mode = "symbols",
-                focus = false,
-                win = {
-                    size = 0.3,
-                    relative = "win",
-                    position = "right",
-                },
-            })
-        end,
-    })
 end
 
 vim.api.nvim_create_autocmd("VimEnter", {
