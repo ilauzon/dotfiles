@@ -54,6 +54,8 @@ local function setup_telescope()
 
     local telescope = require('telescope')
     local actions = require('telescope.actions')
+    local project_actions = require("telescope._extensions.project.actions")
+    local project_selected = false
     telescope.setup({
         defaults = {
             mappings = {
@@ -80,7 +82,26 @@ local function setup_telescope()
                 -- Optional: prevent searching inside the .git directory
                 find_command = { "rg", "--files", "--hidden", "--glob", "!**/.git/*" },
             },
+            buffers = {
+                show_all_buffers = true,
+                sort_lastused = true,
+                mappings = {
+                    i = {
+                        ["<c-d>"] = "delete_buffer",
+                    }
+                }
+            }
         },
+        extensions = {
+            project = {
+                on_project_selected = function(prompt_bufnr)
+                    project_actions.change_working_directory(prompt_bufnr, false)
+                    vim.cmd('bufdo! bwipeout')
+                    vim.diagnostic.reset()
+                    builtin.find_files()
+                end,
+            }
+        }
     })
 
     -- telescope - show projects on startup when called with no args
@@ -108,7 +129,7 @@ local function setup_debugger()
         type = "server",
         port = "${port}",
         executable = {
-            command = "codelldb",
+            command = "lldb",
             args = { "--port", "${port}" },
         }
     }
@@ -146,11 +167,16 @@ setup_colorscheme()
 -- lsp
 
 local function setup_lsps()
+    vim.lsp.config("clangd", {
+        cmd = {
+            'clangd',
+            '--completion-style=detailed',
+            '--background-index',
+        }
+    })
     vim.lsp.enable('clangd')
 
     vim.lsp.enable('lua_ls')
-
-    vim.lsp.enable('roslyn')
 
     vim.keymap.set('n', '<leader>ca', vim.lsp.buf.code_action, { desc = 'Perform LSP-suggested code action' })
     vim.keymap.set('n', 'grd', vim.lsp.buf.definition)
@@ -180,7 +206,7 @@ setup_lsps()
 
 require('lualine').setup()
 
--- custom layout for git repositories
+-- custom actions for git repositories
 
 local function get_target_path()
     if vim.fn.argc() == 0 then
@@ -203,18 +229,68 @@ local function is_git_repo(path)
     return vim.v.shell_error == 0 and result:match("true")
 end
 
+local function load_all_files_as_bufs()
+    -- 1. Get all tracked AND untracked files (excluding ignored ones)
+    -- --cached: tracked files
+    -- --others: untracked files
+    -- --exclude-standard: respect .gitignore, .git/info/exclude, etc.
+    local git_cmd = "git ls-files --cached --others --exclude-standard"
+    local handle = io.popen(git_cmd)
+    if not handle then return end
+    local result = handle:read("*a")
+    handle:close()
+
+    local count = 0
+    for file in result:gmatch("[^\r\n]+") do
+        -- 2. Only load if it's a real file and NOT binary
+        -- We check the first 1024 bytes for a null byte to detect binary
+        if vim.fn.filereadable(file) == 1 then
+            local f = io.open(file, "rb")
+            if f then
+                local bytes = f:read(1024) or ""
+                f:close()
+
+                if not bytes:find("\0") then
+                    -- Load as hidden buffer to trigger LSP
+                    vim.fn.bufload(vim.fn.bufadd(file))
+                    count = count + 1
+                end
+            end
+        end
+    end
+    vim.notify("LSP Project Scan: " .. count .. " files indexed.", vim.log.levels.INFO)
+end
+
+vim.keymap.set('n', '<leader>da', load_all_files_as_bufs, { desc = "Load all files into buffers for LSP (expensive!)" })
+-- if the project is a git repository, open all files
+local has_scanned = false
 local function open_git_layout()
     -- Avoid re-running if layout already exists
     if vim.g.git_layout_opened then
         return
     end
     vim.g.git_layout_opened = true
-
     local file_dir = get_target_path()
-
     -- set cwd to that of given file
     vim.cmd("cd " .. file_dir)
 end
+
+-- Language servers that only scan open buffers.
+local single_file_lsps = {
+    ["clangd"] = true,
+}
+-- load all files in the repository into buffers for the LSP
+vim.api.nvim_create_autocmd("LspAttach", {
+    callback = function(args)
+        local client = vim.lsp.get_client_by_id(args.data.client_id)
+        -- Only run if the server is clangd and we haven't scanned yet this session
+        local lsp = client.name
+        if client and single_file_lsps[lsp] and not has_scanned then
+            has_scanned = true
+            vim.schedule(load_all_files_as_bufs)
+        end
+    end
+})
 
 vim.api.nvim_create_autocmd("VimEnter", {
     callback = function()
