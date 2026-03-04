@@ -81,6 +81,7 @@ local function setup_telescope()
                 hidden = true,
                 -- Optional: prevent searching inside the .git directory
                 find_command = { "rg", "--files", "--hidden", "--glob", "!**/.git/*" },
+                follow = true
             },
             buffers = {
                 show_all_buffers = true,
