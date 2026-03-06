@@ -41,6 +41,8 @@ vim.keymap.set('n', '<leader>e', ':NvimTreeOpen .<CR>', { desc = 'nvim-tree open
 
 -- telescope
 
+local session_dir = vim.fn.stdpath("state") .. "/sessions"
+
 local function setup_telescope()
     local builtin = require('telescope.builtin')
     vim.keymap.set('n', '<leader>fk', builtin.keymaps, { desc = 'Telescope show keymappings' })
@@ -53,9 +55,8 @@ local function setup_telescope()
     vim.keymap.set('n', '<leader>fd', builtin.diagnostics, { desc = 'Telescope diagnostics' })
 
     local telescope = require('telescope')
+    telescope.load_extension('projects')
     local actions = require('telescope.actions')
-    local project_actions = require("telescope._extensions.project.actions")
-    local project_selected = false
     telescope.setup({
         defaults = {
             mappings = {
@@ -93,30 +94,20 @@ local function setup_telescope()
                 }
             }
         },
-        extensions = {
-            project = {
-                on_project_selected = function(prompt_bufnr)
-                    project_actions.change_working_directory(prompt_bufnr, false)
-                    vim.cmd('bufdo! bwipeout')
-                    vim.diagnostic.reset()
-                    builtin.find_files()
-                end,
-            }
-        }
+        extensions = {}
     })
 
     -- telescope - show projects on startup when called with no args
 
-    local telescope_projects = telescope.extensions.project
     if vim.fn.argc() == 0 then
         vim.api.nvim_create_autocmd('VimEnter', {
             callback = function()
-                telescope_projects.project { 'full' }
+                telescope.extensions.projects.projects {}
             end,
         })
     end
 
-    vim.keymap.set('n', '<leader>fp', telescope_projects.project, { desc = 'Telescope find projects' })
+    vim.keymap.set('n', '<leader>fp', telescope.extensions.projects.projects, { desc = 'Telescope find projects' })
 end
 
 setup_telescope()
