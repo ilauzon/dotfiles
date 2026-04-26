@@ -158,7 +158,7 @@ setup_colorscheme()
 
 -- lsp
 
-local function setup_lsps()
+local function configure_clangd()
     vim.lsp.config("clangd", {
         cmd = {
             'clangd',
@@ -166,9 +166,10 @@ local function setup_lsps()
             '--background-index',
         }
     })
-    vim.lsp.enable('clangd')
+end
 
-    vim.lsp.enable('lua_ls')
+local function setup_lsps()
+    configure_clangd()
 
     vim.keymap.set('n', '<leader>ca', vim.lsp.buf.code_action, { desc = 'Perform LSP-suggested code action' })
     vim.keymap.set('n', 'grd', vim.lsp.buf.definition)
@@ -305,11 +306,10 @@ local function setup_general_settings()
     vim.o.softtabstop = 0
     vim.o.shiftwidth = 4
     vim.o.smarttab = true
-
     vim.wo.number = true
     vim.wo.relativenumber = true
     vim.opt.signcolumn = 'yes'
-
+    -- vim.opt.directory = "."
     -- vim.g.netrw_bufsettings = 'noma nomod nobl ro'
     -- vim.g.netrw_liststyle = 3 -- expand folders without descending
 end
