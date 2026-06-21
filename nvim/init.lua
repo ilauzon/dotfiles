@@ -20,9 +20,6 @@ nvim_tree.setup({
     },
     view = {
         width = 30,
-        float = {
-            enable = true,
-        },
     },
     renderer = {
         group_empty = true,
@@ -117,7 +114,7 @@ setup_telescope()
 local function setup_debugger()
     local dap = require("dap")
 
-    dap.adapters.codelldb = {
+    dap.adapters.lldb = {
         type = "server",
         port = "${port}",
         executable = {
@@ -141,9 +138,13 @@ local function setup_debugger()
             type = 'lldb',
             request = 'launch',
             name = "Launch",
-            program = "${file}",
+            program = function()
+                return vim.fn.input('Path to executable: ', vim.fn.getcwd() .. '/', 'file')
+            end,
+            stopOnEntry = false,
         }
     }
+    dap.configurations.c = dap.configurations.cpp
 end
 
 setup_debugger()
@@ -168,8 +169,19 @@ local function configure_clangd()
     })
 end
 
+local function configure_kotlin()
+    vim.lsp.config("kotlin_lsp", {
+        cmd = {
+            'intellij-server',
+            '--stdio',
+        }
+    })
+end
+
+
 local function setup_lsps()
     configure_clangd()
+    configure_kotlin()
 
     vim.keymap.set('n', '<leader>ca', vim.lsp.buf.code_action, { desc = 'Perform LSP-suggested code action' })
     vim.keymap.set('n', 'grd', vim.lsp.buf.definition)
@@ -300,7 +312,10 @@ vim.api.nvim_create_autocmd("VimEnter", {
 
 -- general
 
+
 local function setup_general_settings()
+    vim.keymap.set('n', '<C-/>', 'gcc', { remap = true, desc = 'Toggle comment' })
+    vim.keymap.set('x', '<C-/>', 'gc', { remap = true, desc = 'Toggle comment' })
     vim.o.tabstop = 8
     vim.o.expandtab = true
     vim.o.softtabstop = 0
@@ -309,9 +324,10 @@ local function setup_general_settings()
     vim.wo.number = true
     vim.wo.relativenumber = true
     vim.opt.signcolumn = 'yes'
-    -- vim.opt.directory = "."
-    -- vim.g.netrw_bufsettings = 'noma nomod nobl ro'
-    -- vim.g.netrw_liststyle = 3 -- expand folders without descending
+    vim.o.foldmethod = "expr"
+    vim.o.foldexpr = "v:lua.vim.treesitter.foldexpr()"
+    vim.o.foldlevel = 99
 end
+
 
 setup_general_settings()
