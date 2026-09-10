@@ -114,13 +114,11 @@ setup_telescope()
 local function setup_debugger()
     local dap = require("dap")
 
-    dap.adapters.lldb = {
-        type = "server",
-        port = "${port}",
-        executable = {
-            command = "lldb",
-            args = { "--port", "${port}" },
-        }
+    dap.adapters.gdb = {
+        id = "gdb",
+        type = "executable",
+        command = "gdb",
+        args = { "--quiet", "--interpreter=dap" },
     }
 
     local dapui = require("dapui")
@@ -135,13 +133,14 @@ local function setup_debugger()
 
     dap.configurations.cpp = {
         {
-            type = 'lldb',
+            type = 'gdb',
             request = 'launch',
             name = "Launch",
             program = function()
                 return vim.fn.input('Path to executable: ', vim.fn.getcwd() .. '/', 'file')
             end,
-            stopOnEntry = false,
+            cwd = "${workspaceFolder}",
+            stopAtBeginningOfMainSubprogram = false,
         }
     }
     dap.configurations.c = dap.configurations.cpp
@@ -169,19 +168,8 @@ local function configure_clangd()
     })
 end
 
-local function configure_kotlin()
-    vim.lsp.config("kotlin_lsp", {
-        cmd = {
-            'intellij-server',
-            '--stdio',
-        }
-    })
-end
-
-
 local function setup_lsps()
     configure_clangd()
-    configure_kotlin()
 
     vim.keymap.set('n', '<leader>ca', vim.lsp.buf.code_action, { desc = 'Perform LSP-suggested code action' })
     vim.keymap.set('n', 'grd', vim.lsp.buf.definition)
