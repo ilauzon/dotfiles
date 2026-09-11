@@ -223,10 +223,7 @@ local function is_git_repo(path)
 end
 
 local function load_all_files_as_bufs()
-    -- 1. Get all tracked AND untracked files (excluding ignored ones)
-    -- --cached: tracked files
-    -- --others: untracked files
-    -- --exclude-standard: respect .gitignore, .git/info/exclude, etc.
+    if (not is_git_repo(vim.fn.getcwd())) then return end
     local git_cmd = "git ls-files --cached --others --exclude-standard"
     local handle = io.popen(git_cmd)
     if not handle then return end
@@ -235,8 +232,7 @@ local function load_all_files_as_bufs()
 
     local count = 0
     for file in result:gmatch("[^\r\n]+") do
-        -- 2. Only load if it's a real file and NOT binary
-        -- We check the first 1024 bytes for a null byte to detect binary
+        -- check the first 1024 bytes for a null byte to detect binary
         if vim.fn.filereadable(file) == 1 then
             local f = io.open(file, "rb")
             if f then
@@ -244,14 +240,13 @@ local function load_all_files_as_bufs()
                 f:close()
 
                 if not bytes:find("\0") then
-                    -- Load as hidden buffer to trigger LSP
                     vim.fn.bufload(vim.fn.bufadd(file))
                     count = count + 1
                 end
             end
         end
     end
-    vim.notify("LSP Project Scan: " .. count .. " files indexed.", vim.log.levels.INFO)
+    vim.notify(count .. " files indexed.", vim.log.levels.INFO)
 end
 
 vim.keymap.set('n', '<leader>da', load_all_files_as_bufs, { desc = "Load all files into buffers for LSP (expensive!)" })
